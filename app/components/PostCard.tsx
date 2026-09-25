@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CommentSection from "@/app/components/CommentSection";
 import {
   avatarColorFromAnonId,
@@ -18,6 +18,8 @@ export type PostCardProps = {
   now?: number;
   userVote?: 1 | -1 | null;
   voting?: boolean;
+  highlighted?: boolean;
+  defaultCommentsOpen?: boolean;
   onUpvote?: () => void;
   onDownvote?: () => void;
   onCommentAdded?: () => void;
@@ -117,18 +119,32 @@ export default function PostCard({
   now = Date.now(),
   userVote = null,
   voting = false,
+  highlighted = false,
+  defaultCommentsOpen = false,
   onUpvote,
   onDownvote,
   onCommentAdded,
 }: PostCardProps) {
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(defaultCommentsOpen);
+
+  useEffect(() => {
+    if (defaultCommentsOpen) setCommentsOpen(true);
+  }, [defaultCommentsOpen]);
+
   const handle = formatAnonHandle(anonId);
   const avatarColor = avatarColorFromAnonId(anonId);
   const countdown = formatCountdown(getExpiryRemaining(createdAt, now));
   const expired = countdown === "Expired";
 
   return (
-    <article className="rounded-lg border border-[#e0e0e0] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+    <article
+      id={`post-${id}`}
+      className={`rounded-lg border bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)] transition ring-offset-2 ${
+        highlighted
+          ? "border-ol-accent ring-2 ring-ol-accent/40"
+          : "border-[#e0e0e0]"
+      }`}
+    >
       {/* Header — LinkedIn density */}
       <div className="flex items-start gap-2 px-4 pb-1 pt-3">
         <div

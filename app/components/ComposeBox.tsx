@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { getAnonId } from "@/lib/anon";
+import { refreshTopStories } from "@/app/components/layout/TopStories";
 import { supabase } from "@/lib/supabase";
+import { authorFieldsForCurrentUser } from "@/lib/votes";
 
 type ComposeBoxProps = {
   onPosted: () => void;
@@ -22,8 +23,11 @@ export default function ComposeBox({ onPosted }: ComposeBoxProps) {
     setError(null);
 
     const { error: insertError } = await supabase.from("posts").insert({
-      anon_id: getAnonId(),
+      ...authorFieldsForCurrentUser(),
       content: trimmed,
+      image_url: null,
+      upvotes: 0,
+      downvotes: 0,
     });
 
     setSubmitting(false);
@@ -35,6 +39,7 @@ export default function ComposeBox({ onPosted }: ComposeBoxProps) {
 
     setContent("");
     onPosted();
+    refreshTopStories();
   }
 
   return (

@@ -83,6 +83,7 @@ export default function CommentSection({
     const { error: insertError } = await supabase.from("comments").insert({
       post_id: postId,
       anon_id: getAnonId(),
+      author_name: formatAnonHandle(getAnonId()),
       content: trimmed,
     });
 

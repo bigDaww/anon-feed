@@ -3,25 +3,43 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* OutLinked — LinkedIn-like density, legally distinct palette */
+  --ol-canvas: #f3f2ef;
+  --ol-surface: #ffffff;
+  --ol-ink: #191919;
+  --ol-muted: rgba(0, 0, 0, 0.6);
+  --ol-faint: rgba(0, 0, 0, 0.45);
+  --ol-border: #e0e0e0;
+  --ol-border-soft: rgba(0, 0, 0, 0.08);
+  --ol-accent: #0f6e56;
+  --ol-accent-hover: #0a5240;
+  --ol-accent-soft: #e7f5f0;
+  --ol-danger: #b42318;
+  --ol-nav-height: 52px;
+  --ol-bottom-nav-height: 56px;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: var(--ol-canvas);
+  --foreground: var(--ol-ink);
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .ol-card {
+    @apply rounded-lg border bg-[var(--ol-surface)] shadow-[0_0_0_1px_rgba(0,0,0,0.04)];
+    border-color: var(--ol-border);
+  }
+
+  .ol-section-title {
+    @apply text-base font-semibold tracking-tight;
+    color: var(--ol-ink);
   }
 }
