@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import BottomNav from "@/app/components/layout/BottomNav";
 import LeftSidebar from "@/app/components/layout/LeftSidebar";
 import RightSidebar from "@/app/components/layout/RightSidebar";
@@ -13,10 +14,7 @@ type AppShellProps = {
 
 export default function AppShell({ children }: AppShellProps) {
   const [leftOpen, setLeftOpen] = useState(false);
-  const [groupsOpen, setGroupsOpen] = useState(false);
-
   const closeLeft = useCallback(() => setLeftOpen(false), []);
-  const closeGroups = useCallback(() => setGroupsOpen(false), []);
 
   function focusCompose() {
     const el = document.getElementById("compose");
@@ -34,17 +32,14 @@ export default function AppShell({ children }: AppShellProps) {
       />
 
       <div className="mx-auto flex max-w-shell gap-6 px-3 pb-bottom-nav pt-6 sm:px-4 lg:pb-8">
-        {/* Left — 280px */}
         <div className="hidden w-sidebar-left shrink-0 lg:block">
           <div className="sticky top-[calc(var(--ol-nav-height)+1.5rem)] max-h-[calc(100vh-var(--ol-nav-height)-2rem)] overflow-y-auto">
             <LeftSidebar onCreatePost={focusCompose} />
           </div>
         </div>
 
-        {/* Center feed */}
         <main className="min-w-0 flex-1">{children}</main>
 
-        {/* Right — 320px (desktop). Also visible from md when space allows. */}
         <div className="hidden w-sidebar-right shrink-0 xl:block">
           <div className="sticky top-[calc(var(--ol-nav-height)+1.5rem)] max-h-[calc(100vh-var(--ol-nav-height)-2rem)] overflow-y-auto">
             <RightSidebar />
@@ -52,26 +47,22 @@ export default function AppShell({ children }: AppShellProps) {
         </div>
       </div>
 
-      <BottomNav
-        onOpenGroups={() => setGroupsOpen(true)}
-        onOpenProfile={() => setLeftOpen(true)}
-      />
+      <footer className="mx-auto hidden max-w-shell px-4 pb-6 text-center text-[11px] text-ol-faint lg:block">
+        <Link href="/terms" className="hover:text-ol-muted hover:underline">
+          Terms
+        </Link>
+        <span className="mx-2">·</span>
+        <Link href="/privacy" className="hover:text-ol-muted hover:underline">
+          Privacy
+        </Link>
+        <span className="mx-2">·</span>
+        <span>Report abuse via the Report button on posts</span>
+      </footer>
+
+      <BottomNav onOpenProfile={() => setLeftOpen(true)} />
 
       <SlideOver open={leftOpen} title="Menu" onClose={closeLeft} side="left">
         <LeftSidebar onCreatePost={focusCompose} onClosePanel={closeLeft} />
-      </SlideOver>
-
-      <SlideOver
-        open={groupsOpen}
-        title="Groups"
-        onClose={closeGroups}
-        side="right"
-      >
-        <LeftSidebar
-          section="groups"
-          onCreatePost={focusCompose}
-          onClosePanel={closeGroups}
-        />
       </SlideOver>
     </div>
   );

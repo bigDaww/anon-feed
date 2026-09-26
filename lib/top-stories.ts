@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 
 export type TopStory = {
   id: string;
+  anon_id: string;
   content: string;
   author_name: string;
   author_avatar: string;
@@ -21,7 +22,7 @@ export async function fetchTopStories(
 
   const { data, error } = await supabase
     .from("posts")
-    .select("id, content, author_name, author_avatar, created_at, upvotes")
+    .select("id, anon_id, content, author_name, author_avatar, created_at, upvotes")
     .order("upvotes", { ascending: false })
     .order("created_at", { ascending: false })
     .range(from, to);

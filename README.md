@@ -9,7 +9,13 @@ npm install
 cp .env.example .env.local
 ```
 
-Fill in `.env.local` with your Supabase project URL and anon key, then run the SQL in `supabase/schema.sql` (and `supabase/votes_delete_policy.sql` if needed) in the Supabase SQL editor.
+Fill in `.env.local` with your Supabase project URL and anon key, then run these SQL files in the Supabase SQL editor (in order):
+
+1. `supabase/schema.sql` (or `migration_top_stories.sql` if upgrading an older DB)
+2. `supabase/votes_delete_policy.sql` if needed
+3. `supabase/migration_identity_rooms_reputation.sql`
+4. `supabase/fix_profiles_digest_search_path.sql` (if profile create fails on `digest`)
+5. `supabase/migration_public_hardening.sql` (**required before public launch**)
 
 ```bash
 npm run dev

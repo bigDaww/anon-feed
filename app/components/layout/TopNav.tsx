@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Bell,
-  Home,
-  Menu,
-  Search,
-  UserRound,
-  UsersRound,
-  X,
-} from "lucide-react";
+import { FileText, Home, Menu, Search, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 
@@ -21,10 +13,10 @@ function LogoMark() {
   return (
     <Link
       href="/"
-      className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ol-accent"
+      className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ol-ink"
       aria-label="OutLinked home"
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ol-accent text-sm font-bold tracking-tight text-white">
+      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ol-primary text-sm font-bold tracking-tight text-white">
         OL
       </span>
       <span className="hidden text-[22px] font-semibold tracking-tight text-ol-ink sm:inline">
@@ -52,7 +44,7 @@ function NavIconLink({
         active ? "text-ol-ink" : "text-ol-muted hover:text-ol-ink"
       }`}
     >
-      <span className={active ? "text-ol-accent" : undefined}>{children}</span>
+      <span className={active ? "text-ol-ink" : undefined}>{children}</span>
       <span className="hidden text-[11px] font-medium leading-none md:inline">
         {label}
       </span>
@@ -100,7 +92,7 @@ export default function TopNav({ onOpenMenu, onOpenProfile }: TopNavProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search"
-              className="h-9 w-full rounded-md border-0 bg-[#edf3f8] py-2 pl-9 pr-3 text-sm text-ol-ink outline-none placeholder:text-ol-faint focus:ring-2 focus:ring-ol-accent/30"
+              className="h-9 w-full rounded-md border-0 bg-neutral-100 py-2 pl-9 pr-3 text-sm text-ol-ink outline-none placeholder:text-ol-faint focus:ring-2 focus:ring-ol-ink/20"
             />
             {query ? (
               <button
@@ -122,11 +114,8 @@ export default function TopNav({ onOpenMenu, onOpenProfile }: TopNavProps) {
           <NavIconLink href="/" label="Home" active>
             <Home className="h-5 w-5" strokeWidth={1.75} />
           </NavIconLink>
-          <NavIconLink href="/#notifications" label="Notifications">
-            <Bell className="h-5 w-5" strokeWidth={1.75} />
-          </NavIconLink>
-          <NavIconLink href="/#groups" label="Groups">
-            <UsersRound className="h-5 w-5" strokeWidth={1.75} />
+          <NavIconLink href="/terms" label="Rules">
+            <FileText className="h-5 w-5" strokeWidth={1.75} />
           </NavIconLink>
           <button
             type="button"

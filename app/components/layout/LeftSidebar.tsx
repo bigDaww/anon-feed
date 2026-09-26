@@ -1,25 +1,20 @@
 "use client";
 
-import { CalendarDays, Hash, PenLine, UserRound } from "lucide-react";
+import { CalendarDays, PenLine, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  avatarColorFromAnonId,
-  formatAnonHandle,
-} from "@/lib/anon-display";
+import AvatarBadge from "@/app/components/AvatarBadge";
+import { animalNameFromAnonId } from "@/lib/avatar";
 import { getAnonId, getAnonJoinedAt } from "@/lib/anon";
 import {
-  COMMUNITY_GROUPS,
-  formatMemberCount,
-  TALKING_ABOUT,
-  type CommunityGroup,
-} from "@/lib/social-data";
+  fetchCurrentProfile,
+  getCachedProfile,
+  type Profile,
+} from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
 type LeftSidebarProps = {
   onCreatePost?: () => void;
   onClosePanel?: () => void;
-  /** When "groups", only render the groups card (mobile panel). */
-  section?: "all" | "groups";
 };
 
 function formatJoinDate(iso: string): string {
@@ -32,20 +27,30 @@ function formatJoinDate(iso: string): string {
 export default function LeftSidebar({
   onCreatePost,
   onClosePanel,
-  section = "all",
 }: LeftSidebarProps) {
   const [anonId, setAnonId] = useState<string | null>(null);
   const [joinedAt, setJoinedAt] = useState<string | null>(null);
   const [postCount, setPostCount] = useState(0);
   const [karma, setKarma] = useState(0);
-  const [groups, setGroups] = useState<CommunityGroup[]>(COMMUNITY_GROUPS);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     const id = getAnonId();
     setAnonId(id);
     setJoinedAt(getAnonJoinedAt());
+    setProfile(getCachedProfile());
 
     void (async () => {
+      try {
+        const p = await fetchCurrentProfile();
+        if (p) {
+          setProfile(p);
+          setKarma(p.karma);
+        }
+      } catch {
+        // profiles table may not exist yet
+      }
+
       const { data: myPosts, count } = await supabase
         .from("posts")
         .select("id", { count: "exact" })
@@ -53,106 +58,51 @@ export default function LeftSidebar({
 
       setPostCount(count ?? 0);
 
-      const ids = (myPosts ?? []).map((p) => p.id);
-      if (ids.length === 0) {
-        setKarma(0);
-        return;
+      if (!getCachedProfile()) {
+        const ids = (myPosts ?? []).map((p) => p.id);
+        if (ids.length === 0) {
+          setKarma(0);
+          return;
+        }
+        const { data: votes } = await supabase
+          .from("votes")
+          .select("value")
+          .in("post_id", ids);
+        setKarma((votes ?? []).reduce((sum, row) => sum + row.value, 0));
       }
-
-      const { data: votes } = await supabase
-        .from("votes")
-        .select("value")
-        .in("post_id", ids);
-
-      setKarma((votes ?? []).reduce((sum, row) => sum + row.value, 0));
     })();
   }, []);
 
-  function toggleJoin(groupId: string) {
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === groupId
-          ? {
-              ...g,
-              joined: !g.joined,
-              memberCount: g.joined ? g.memberCount - 1 : g.memberCount + 1,
-            }
-          : g,
-      ),
-    );
-  }
-
-  const handle = anonId ? formatAnonHandle(anonId) : "Anon-····";
-  const avatarColor = anonId ? avatarColorFromAnonId(anonId) : "#94a3b8";
-
-  const groupsCard = (
-    <section id="groups" className="ol-card p-3">
-      <h3 className="ol-section-title text-sm">Groups</h3>
-      <ul className="mt-2 space-y-2">
-        {groups.map((group) => (
-          <li
-            key={group.id}
-            className="flex items-center gap-2 rounded-lg border border-ol-border bg-ol-surface p-2.5"
-          >
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
-              style={{
-                background: `linear-gradient(135deg, ${avatarColorFromAnonId(group.id)}, #1a4d6d)`,
-              }}
-              aria-hidden
-            >
-              {group.name.slice(0, 1)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-ol-ink">
-                {group.name}
-              </p>
-              <p className="text-xs text-ol-muted">
-                {formatMemberCount(group.memberCount)} members
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => toggleJoin(group.id)}
-              className={`h-8 shrink-0 rounded-full px-3 text-xs font-semibold transition ${
-                group.joined
-                  ? "border border-ol-border bg-white text-ol-muted hover:bg-black/[0.03]"
-                  : "bg-ol-accent text-white hover:bg-ol-accent-hover"
-              }`}
-            >
-              {group.joined ? "Joined" : "Join"}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-
-  if (section === "groups") {
-    return <aside className="space-y-2">{groupsCard}</aside>;
-  }
+  const handle = anonId ? animalNameFromAnonId(anonId) : "the stranger";
+  const publicId = profile?.public_id;
+  const joinedLabel = profile?.created_at || joinedAt;
 
   return (
     <aside className="space-y-2">
-      {/* Profile card */}
       <section className="ol-card overflow-hidden">
-        <div className="h-14 bg-gradient-to-br from-ol-accent to-[#1a4d6d]" />
+        <div className="h-14 bg-neutral-900" />
         <div className="relative px-3 pb-3 pt-0">
-          <div
-            className="-mt-8 h-16 w-16 rounded-full border-2 border-white"
-            style={{ backgroundColor: avatarColor }}
-            aria-hidden
-          />
-          <h2 className="mt-2 truncate text-base font-semibold text-ol-ink">
+          <div className="-mt-8 inline-block rounded-full border-2 border-white bg-white">
+            <AvatarBadge anonId={anonId} size={44} />
+          </div>
+          <h2 className="mt-2 truncate font-mono text-base font-semibold text-ol-ink">
             {handle}
           </h2>
-          <p className="text-xs text-ol-muted">Anonymous member</p>
+          {profile?.display_name &&
+          profile.display_name.trim() !== handle ? (
+            <p className="truncate text-xs text-ol-muted">
+              {profile.display_name}
+            </p>
+          ) : null}
+          <p className="font-mono text-xs text-ol-muted">
+            {publicId ? `ID · ${publicId}` : "Anonymous member"}
+          </p>
 
           <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-ol-border pt-3 text-center">
             <div>
               <dt className="text-[11px] text-ol-faint">Karma</dt>
               <dd className="text-sm font-semibold tabular-nums text-ol-ink">
-                {karma}
+                {profile?.karma ?? karma}
               </dd>
             </div>
             <div>
@@ -166,11 +116,40 @@ export default function LeftSidebar({
               <dd className="flex items-center justify-center gap-0.5 text-sm font-semibold text-ol-ink">
                 <CalendarDays className="hidden h-3 w-3 text-ol-faint sm:inline" />
                 <span className="tabular-nums">
-                  {joinedAt ? formatJoinDate(joinedAt) : "—"}
+                  {joinedLabel ? formatJoinDate(joinedLabel) : "—"}
                 </span>
               </dd>
             </div>
           </dl>
+
+          {profile ? (
+            <ul className="mt-3 grid grid-cols-2 gap-1.5 border-t border-ol-border pt-3 text-[11px]">
+              <li className="rounded-md bg-neutral-50 px-2 py-1.5 text-ol-ink">
+                Insightful{" "}
+                <span className="font-mono font-semibold tabular-nums">
+                  {profile.rep_insightful}
+                </span>
+              </li>
+              <li className="rounded-md bg-neutral-50 px-2 py-1.5 text-ol-ink">
+                Helpful{" "}
+                <span className="font-mono font-semibold tabular-nums">
+                  {profile.rep_helpful}
+                </span>
+              </li>
+              <li className="rounded-md bg-neutral-50 px-2 py-1.5 text-ol-ink">
+                Funny{" "}
+                <span className="font-mono font-semibold tabular-nums">
+                  {profile.rep_funny}
+                </span>
+              </li>
+              <li className="rounded-md bg-neutral-50 px-2 py-1.5 text-ol-ink">
+                Supportive{" "}
+                <span className="font-mono font-semibold tabular-nums">
+                  {profile.rep_supportive}
+                </span>
+              </li>
+            </ul>
+          ) : null}
 
           <div className="mt-3 flex flex-col gap-2">
             <button
@@ -179,14 +158,14 @@ export default function LeftSidebar({
                 onCreatePost?.();
                 onClosePanel?.();
               }}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-ol-accent px-3 text-sm font-semibold text-white transition hover:bg-ol-accent-hover"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-ol-primary px-3 text-sm font-semibold text-white transition hover:bg-ol-primary-hover"
             >
               <PenLine className="h-4 w-4" strokeWidth={1.75} />
               Create Post
             </button>
             <button
               type="button"
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-ol-accent px-3 text-sm font-semibold text-ol-accent transition hover:bg-ol-accent-soft"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-ol-ink px-3 text-sm font-semibold text-ol-ink transition hover:bg-neutral-50"
             >
               <UserRound className="h-4 w-4" strokeWidth={1.75} />
               My Profile
@@ -195,34 +174,25 @@ export default function LeftSidebar({
         </div>
       </section>
 
-      {/* Topics */}
       <section className="ol-card p-3">
-        <h3 className="ol-section-title text-sm">What people are talking about</h3>
-        <ul className="mt-2 divide-y divide-ol-border">
-          {TALKING_ABOUT.map((topic) => (
-            <li key={topic.id}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 py-2.5 text-left transition hover:bg-black/[0.02]"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-ol-accent-soft text-ol-accent">
-                  <Hash className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-ol-ink">
-                    {topic.label}
-                  </span>
-                  <span className="block text-xs text-ol-muted">
-                    {formatMemberCount(topic.postCount)} posts
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
+        <h3 className="ol-section-title text-sm">Guidelines</h3>
+        <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-ol-muted">
+          <li>Be decent. No harassment, threats, or illegal content.</li>
+          <li>Use Report on posts that break the rules.</li>
+          <li>
+            Posts expire after 24 hours. Rate limits apply to curb spam.
+          </li>
         </ul>
+        <p className="mt-3 text-[11px] text-ol-faint">
+          <a href="/terms" className="underline-offset-2 hover:underline">
+            Terms
+          </a>
+          {" · "}
+          <a href="/privacy" className="underline-offset-2 hover:underline">
+            Privacy
+          </a>
+        </p>
       </section>
-
-      {groupsCard}
     </aside>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import AvatarBadge from "@/app/components/AvatarBadge";
+import { animalNameFromAnonId } from "@/lib/avatar";
 import {
   excerpt,
   formatCompactCount,
@@ -154,34 +156,24 @@ export default function TopStories({ compact = false }: TopStoriesProps) {
                 className="flex w-full gap-2.5 px-3 py-2.5 text-left transition hover:bg-black/[0.03]"
               >
                 <div className="flex w-12 shrink-0 flex-col items-center pt-0.5">
-                  <span className="text-[10px] font-semibold leading-none text-ol-accent">
+                  <span className="text-[10px] font-semibold leading-none text-ol-ink">
                     ▲
                   </span>
-                  <span className="mt-0.5 text-xs font-semibold tabular-nums text-ol-ink">
+                  <span className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-ol-ink">
                     {formatCompactCount(story.upvotes)}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span
-                      className="h-4 w-4 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor:
-                          story.author_avatar?.startsWith("hsl") ||
-                          story.author_avatar?.startsWith("#")
-                            ? story.author_avatar
-                            : "#94a3b8",
-                      }}
-                      aria-hidden
-                    />
-                    <span className="truncate text-xs font-semibold text-ol-ink">
-                      {story.author_name || "Anonymous"}
+                    <AvatarBadge anonId={story.anon_id} size={16} />
+                    <span className="truncate font-mono text-xs font-semibold text-ol-ink">
+                      {animalNameFromAnonId(story.anon_id)}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs leading-snug text-ol-muted">
+                  <p className="mt-0.5 font-voice text-xs leading-snug text-ol-muted">
                     {excerpt(story.content, 80)}
                   </p>
-                  <p className="mt-1 text-[11px] text-ol-faint">
+                  <p className="mt-1 font-mono text-[11px] text-ol-faint">
                     {formatRelativeShort(story.created_at, now)}
                   </p>
                 </div>

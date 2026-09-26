@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AvatarBadge from "@/app/components/AvatarBadge";
 import CommentSection from "@/app/components/CommentSection";
-import {
-  avatarColorFromAnonId,
-  formatAnonHandle,
-} from "@/lib/anon-display";
+import RoomBanner from "@/app/components/RoomBanner";
+import { animalNameFromAnonId } from "@/lib/avatar";
+import { friendlyWriteError, submitReport } from "@/lib/moderation";
 
 export type PostCardProps = {
   id: string;
@@ -14,12 +14,14 @@ export type PostCardProps = {
   createdAt: string;
   voteScore: number;
   commentCount: number;
-  /** Parent-driven clock tick (e.g. updated every 60s) for live countdown. */
   now?: number;
   userVote?: 1 | -1 | null;
   voting?: boolean;
   highlighted?: boolean;
   defaultCommentsOpen?: boolean;
+  roomId?: string | null;
+  authorName?: string;
+  authorAvatar?: string;
   onUpvote?: () => void;
   onDownvote?: () => void;
   onCommentAdded?: () => void;
@@ -32,30 +34,19 @@ function getExpiryRemaining(createdAt: string, now: number): number {
   return Math.max(0, expiresAt - now);
 }
 
-function formatCountdown(ms: number): string {
+function formatTimeLeft(ms: number): string {
   if (ms <= 0) return "Expired";
-
   const totalSec = Math.floor(ms / 1000);
   const hours = Math.floor(totalSec / 3600);
   const minutes = Math.floor((totalSec % 3600) / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m`;
-  }
-  return "<1m";
+  if (hours > 0) return `${hours}h left`;
+  if (minutes > 0) return `${minutes}m left`;
+  return "<1m left";
 }
 
 function ChevronUpIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 8l6 6H6l6-6z" />
     </svg>
   );
@@ -63,12 +54,7 @@ function ChevronUpIcon({ className }: { className?: string }) {
 
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 16l-6-6h12l-6 6z" />
     </svg>
   );
@@ -93,22 +79,6 @@ function CommentIcon({ className }: { className?: string }) {
   );
 }
 
-function ClockIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M12 7v5l3 2" />
-    </svg>
-  );
-}
-
 export default function PostCard({
   id,
   anonId,
@@ -121,54 +91,84 @@ export default function PostCard({
   voting = false,
   highlighted = false,
   defaultCommentsOpen = false,
+  roomId = null,
   onUpvote,
   onDownvote,
   onCommentAdded,
 }: PostCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(defaultCommentsOpen);
+  const [reporting, setReporting] = useState(false);
+  const [reportMsg, setReportMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (defaultCommentsOpen) setCommentsOpen(true);
   }, [defaultCommentsOpen]);
 
-  const handle = formatAnonHandle(anonId);
-  const avatarColor = avatarColorFromAnonId(anonId);
-  const countdown = formatCountdown(getExpiryRemaining(createdAt, now));
-  const expired = countdown === "Expired";
+  const handle = animalNameFromAnonId(anonId);
+  const remaining = getExpiryRemaining(createdAt, now);
+  const timeLeft = formatTimeLeft(remaining);
+  const remainingRatio = Math.min(1, Math.max(0, remaining / EXPIRY_MS));
+
+  async function handleReport() {
+    if (reporting) return;
+    setReporting(true);
+    setReportMsg(null);
+    try {
+      await submitReport({ targetType: "post", targetId: id });
+      setReportMsg("Reported");
+    } catch (err) {
+      setReportMsg(
+        err instanceof Error
+          ? friendlyWriteError(err.message)
+          : "Could not report",
+      );
+    } finally {
+      setReporting(false);
+    }
+  }
 
   return (
     <article
       id={`post-${id}`}
-      className={`rounded-lg border bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)] transition ring-offset-2 ${
+      className={`overflow-hidden rounded-lg border bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)] transition ring-offset-2 ${
         highlighted
-          ? "border-ol-accent ring-2 ring-ol-accent/40"
-          : "border-[#e0e0e0]"
+          ? "border-ol-ink ring-2 ring-ol-ink/20"
+          : "border-ol-border"
       }`}
     >
-      {/* Header — LinkedIn density */}
-      <div className="flex items-start gap-2 px-4 pb-1 pt-3">
-        <div
-          className="h-12 w-12 shrink-0 rounded-full"
-          style={{ backgroundColor: avatarColor }}
-          aria-hidden
-        />
-        <div className="min-w-0 pt-0.5">
-          <p className="truncate text-sm font-semibold leading-5 text-[rgba(0,0,0,0.9)]">
-            {handle}
-          </p>
-          <p className="text-xs leading-4 text-[rgba(0,0,0,0.6)]">Anonymous</p>
+      <div
+        className="h-[3px] bg-ol-coral transition-[width] duration-700 ease-linear"
+        style={{ width: `${remainingRatio * 100}%` }}
+        aria-hidden
+      />
+
+      <div className="flex items-start gap-2.5 px-4 pb-1 pt-3">
+        <AvatarBadge anonId={anonId} size={36} className="mt-0.5" />
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <p className="truncate font-mono text-sm font-semibold leading-5 text-ol-ink">
+              {handle}
+            </p>
+            <p
+              className="font-mono text-xs leading-4 text-ol-faint"
+              title="Time until this post expires"
+            >
+              {timeLeft}
+            </p>
+          </div>
+          <p className="font-mono text-xs leading-4 text-ol-muted">Anonymous</p>
         </div>
       </div>
 
-      {/* Body */}
       <div className="px-4 pb-3 pt-2">
-        <p className="whitespace-pre-wrap break-words text-sm leading-[1.4] text-[rgba(0,0,0,0.9)]">
+        <p className="whitespace-pre-wrap break-words font-voice text-[15px] leading-[1.5] text-ol-ink">
           {content}
         </p>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center gap-1 border-t border-[#e0e0e0] px-2 py-1">
+      {roomId ? <RoomBanner roomId={roomId} /> : null}
+
+      <div className="flex items-center gap-1 border-t border-ol-border px-2 py-1">
         <div className="flex items-center">
           <button
             type="button"
@@ -177,20 +177,18 @@ export default function PostCard({
             aria-label="Upvote"
             aria-pressed={userVote === 1}
             className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-black/[0.06] disabled:opacity-50 ${
-              userVote === 1
-                ? "bg-[#e8f3ff] text-[#0a66c2]"
-                : "text-[rgba(0,0,0,0.6)]"
+              userVote === 1 ? "bg-neutral-100 text-ol-ink" : "text-ol-muted"
             }`}
           >
             <ChevronUpIcon className="h-5 w-5" />
           </button>
           <span
-            className={`min-w-[1.25rem] text-center text-xs font-semibold tabular-nums ${
+            className={`min-w-[1.25rem] text-center font-mono text-xs font-semibold tabular-nums ${
               voteScore > 0
-                ? "text-[#0a66c2]"
+                ? "text-ol-ink"
                 : voteScore < 0
-                  ? "text-[#cc1016]"
-                  : "text-[rgba(0,0,0,0.6)]"
+                  ? "text-ol-danger"
+                  : "text-ol-muted"
             }`}
           >
             {voteScore}
@@ -203,8 +201,8 @@ export default function PostCard({
             aria-pressed={userVote === -1}
             className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-black/[0.06] disabled:opacity-50 ${
               userVote === -1
-                ? "bg-[#fce8e8] text-[#cc1016]"
-                : "text-[rgba(0,0,0,0.6)]"
+                ? "bg-neutral-100 text-ol-danger"
+                : "text-ol-muted"
             }`}
           >
             <ChevronDownIcon className="h-5 w-5" />
@@ -217,13 +215,11 @@ export default function PostCard({
           aria-expanded={commentsOpen}
           aria-controls={`comments-${id}`}
           className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2 transition-colors hover:bg-black/[0.06] ${
-            commentsOpen
-              ? "bg-black/[0.04] text-[#0a66c2]"
-              : "text-[rgba(0,0,0,0.6)]"
+            commentsOpen ? "bg-black/[0.04] text-ol-ink" : "text-ol-muted"
           }`}
         >
           <CommentIcon className="h-4 w-4" />
-          <span className="text-xs font-semibold tabular-nums">
+          <span className="font-mono text-xs font-semibold tabular-nums">
             {commentCount}
           </span>
           <span className="text-xs">
@@ -231,17 +227,14 @@ export default function PostCard({
           </span>
         </button>
 
-        <div
-          className={`ml-auto inline-flex h-8 items-center gap-1.5 rounded-md px-2 ${
-            expired ? "text-[#cc1016]" : "text-[rgba(0,0,0,0.6)]"
-          }`}
-          title="Time until this post expires"
+        <button
+          type="button"
+          onClick={() => void handleReport()}
+          disabled={reporting || reportMsg === "Reported"}
+          className="ml-auto inline-flex h-8 items-center rounded-md px-2 text-xs text-ol-faint transition hover:bg-black/[0.06] hover:text-ol-muted disabled:opacity-60"
         >
-          <ClockIcon className="h-4 w-4" />
-          <span className="text-xs font-semibold tabular-nums">
-            {expired ? "Expired" : countdown}
-          </span>
-        </div>
+          {reportMsg ?? (reporting ? "…" : "Report")}
+        </button>
       </div>
 
       {commentsOpen ? (

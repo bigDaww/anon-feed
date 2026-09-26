@@ -3,20 +3,26 @@
 @tailwind utilities;
 
 :root {
-  /* OutLinked — LinkedIn-like density, legally distinct palette */
-  --ol-canvas: #f3f2ef;
+  /* Neutral LinkedIn-like density — near-black primary, coral used sparingly */
+  --ol-canvas: #f4f4f2;
   --ol-surface: #ffffff;
-  --ol-ink: #191919;
+  --ol-ink: #141414;
   --ol-muted: rgba(0, 0, 0, 0.6);
   --ol-faint: rgba(0, 0, 0, 0.45);
-  --ol-border: #e0e0e0;
+  --ol-border: #e5e5e5;
   --ol-border-soft: rgba(0, 0, 0, 0.08);
-  --ol-accent: #0f6e56;
-  --ol-accent-hover: #0a5240;
-  --ol-accent-soft: #e7f5f0;
+  /* Primary UI = near-black (replaces LinkedIn blue / teal) */
+  --ol-primary: #141414;
+  --ol-primary-hover: #000000;
+  /* Warm accent — countdown + one primary action only */
+  --ol-coral: #d85a30;
+  --ol-coral-hover: #c04e28;
   --ol-danger: #b42318;
   --ol-nav-height: 52px;
   --ol-bottom-nav-height: 56px;
+
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-voice: "Source Serif 4", ui-serif, Georgia, serif;
 
   --background: var(--ol-canvas);
   --foreground: var(--ol-ink);
@@ -25,7 +31,7 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @layer utilities {
@@ -41,5 +47,49 @@ body {
   .ol-section-title {
     @apply text-base font-semibold tracking-tight;
     color: var(--ol-ink);
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  .font-voice {
+    font-family: var(--font-voice);
+  }
+
+  .animate-in {
+    animation: ol-fade-in 0.35s ease-out both;
+  }
+
+  .fade-in {
+    animation-name: ol-fade-in;
+  }
+
+  .slide-in-from-top-1 {
+    animation-name: ol-slide-down;
+  }
+
+  .duration-300 {
+    animation-duration: 0.3s;
+  }
+}
+
+@keyframes ol-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ol-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

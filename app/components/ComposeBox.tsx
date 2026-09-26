@@ -2,6 +2,11 @@
 
 import { FormEvent, useState } from "react";
 import { refreshTopStories } from "@/app/components/layout/TopStories";
+import {
+  friendlyWriteError,
+  MAX_CONTENT_LENGTH,
+  validateContent,
+} from "@/lib/moderation";
 import { supabase } from "@/lib/supabase";
 import { authorFieldsForCurrentUser } from "@/lib/votes";
 
@@ -16,15 +21,28 @@ export default function ComposeBox({ onPosted }: ComposeBoxProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmed = content.trim();
-    if (!trimmed || submitting) return;
+    if (submitting) return;
+
+    const invalid = validateContent(content);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
 
+    const author = authorFieldsForCurrentUser();
+    const author_name =
+      (author.author_name && author.author_name.trim()) || "the stranger";
+    const author_avatar =
+      (author.author_avatar && author.author_avatar.trim()) || "#6A6A7A";
+
     const { error: insertError } = await supabase.from("posts").insert({
-      ...authorFieldsForCurrentUser(),
-      content: trimmed,
+      anon_id: author.anon_id,
+      author_name,
+      author_avatar,
+      content: content.trim(),
       image_url: null,
       upvotes: 0,
       downvotes: 0,
@@ -33,7 +51,7 @@ export default function ComposeBox({ onPosted }: ComposeBoxProps) {
     setSubmitting(false);
 
     if (insertError) {
-      setError(insertError.message);
+      setError(friendlyWriteError(insertError.message));
       return;
     }
 
@@ -54,23 +72,27 @@ export default function ComposeBox({ onPosted }: ComposeBoxProps) {
         id="compose"
         rows={3}
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => setContent(e.target.value.slice(0, MAX_CONTENT_LENGTH))}
+        maxLength={MAX_CONTENT_LENGTH}
         placeholder="Share something anonymously…"
         disabled={submitting}
-        className="w-full resize-none rounded-md border border-[#e0e0e0] bg-[#f4f2ee] px-3 py-2.5 text-sm leading-[1.4] text-[rgba(0,0,0,0.9)] placeholder:text-[rgba(0,0,0,0.45)] outline-none transition focus:border-[#0a66c2] focus:bg-white focus:ring-1 focus:ring-[#0a66c2] disabled:opacity-60"
+        className="w-full resize-none rounded-md border border-ol-border bg-neutral-50 px-3 py-2.5 font-voice text-[15px] leading-[1.5] text-ol-ink placeholder:font-sans placeholder:text-ol-faint outline-none transition focus:border-ol-ink focus:bg-white focus:ring-1 focus:ring-ol-ink/20 disabled:opacity-60"
       />
 
       {error ? (
-        <p className="mt-2 text-xs text-[#cc1016]" role="alert">
+        <p className="mt-2 text-xs text-ol-danger" role="alert">
           {error}
         </p>
       ) : null}
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] text-ol-faint">
+          {content.length}/{MAX_CONTENT_LENGTH}
+        </span>
         <button
           type="submit"
           disabled={submitting || !content.trim()}
-          className="rounded-full bg-[#0a66c2] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#004182] disabled:cursor-not-allowed disabled:bg-[#0a66c2]/60"
+          className="rounded-full bg-ol-coral px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-ol-coral-hover disabled:cursor-not-allowed disabled:bg-ol-coral/50"
         >
           {submitting ? "Posting…" : "Post"}
         </button>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ComposeBox from "@/app/components/ComposeBox";
+import OnboardingGate from "@/app/components/OnboardingGate";
 import AppShell from "@/app/components/layout/AppShell";
 import TopStories, {
   refreshTopStories,
@@ -9,6 +10,7 @@ import TopStories, {
 import PostCard from "@/app/components/PostCard";
 import { getAnonId } from "@/lib/anon";
 import { onOpenPost } from "@/lib/post-focus";
+import { fetchRoomsForPosts } from "@/lib/rooms";
 import { supabase } from "@/lib/supabase";
 import { castVote, scoreDelta, type VoteValue } from "@/lib/votes";
 
@@ -20,6 +22,9 @@ type FeedPost = {
   voteScore: number;
   commentCount: number;
   userVote: VoteValue | null;
+  author_name?: string | null;
+  author_avatar?: string | null;
+  roomId?: string | null;
 };
 
 type VoteRow = {
@@ -34,6 +39,8 @@ type PostRow = {
   anon_id: string;
   content: string;
   created_at: string;
+  author_name?: string | null;
+  author_avatar?: string | null;
   upvotes?: number | null;
   downvotes?: number | null;
   comments: { count: number }[] | null;
@@ -73,10 +80,13 @@ function mapPostRow(row: PostRow, viewerAnonId: string): FeedPost {
     anon_id: row.anon_id,
     content: row.content,
     created_at: row.created_at,
+    author_name: row.author_name,
+    author_avatar: row.author_avatar,
     commentCount: row.comments?.[0]?.count ?? 0,
     voteScore:
       fromCounts ?? votes.reduce((sum, v) => sum + (voteRowValue(v) ?? 0), 0),
     userVote: toUserVote(votes, viewerAnonId),
+    roomId: null,
   };
 }
 
@@ -86,16 +96,26 @@ async function fetchFeedPosts(viewerAnonId: string): Promise<FeedPost[]> {
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id, anon_id, content, created_at, upvotes, downvotes, comments(count), votes(value, vote_type, anon_id, user_id)",
+      "id, anon_id, content, created_at, author_name, author_avatar, upvotes, downvotes, comments(count), votes(value, vote_type, anon_id, user_id)",
     )
     .gt("created_at", cutoff)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
 
-  return ((data ?? []) as PostRow[]).map((row) =>
+  const posts = ((data ?? []) as PostRow[]).map((row) =>
     mapPostRow(row, viewerAnonId),
   );
+
+  try {
+    const rooms = await fetchRoomsForPosts(posts.map((p) => p.id));
+    return posts.map((p) => ({
+      ...p,
+      roomId: rooms[p.id]?.id ?? null,
+    }));
+  } catch {
+    return posts;
+  }
 }
 
 async function fetchPostById(
@@ -105,14 +125,20 @@ async function fetchPostById(
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id, anon_id, content, created_at, upvotes, downvotes, comments(count), votes(value, vote_type, anon_id, user_id)",
+      "id, anon_id, content, created_at, author_name, author_avatar, upvotes, downvotes, comments(count), votes(value, vote_type, anon_id, user_id)",
     )
     .eq("id", postId)
     .maybeSingle();
 
   if (error) throw error;
   if (!data) return null;
-  return mapPostRow(data as PostRow, viewerAnonId);
+  const mapped = mapPostRow(data as PostRow, viewerAnonId);
+  try {
+    const rooms = await fetchRoomsForPosts([postId]);
+    return { ...mapped, roomId: rooms[postId]?.id ?? null };
+  } catch {
+    return mapped;
+  }
 }
 
 export default function FeedPage() {
@@ -236,14 +262,15 @@ export default function FeedPage() {
 
 
   return (
-    <AppShell>
-      <div className="mx-auto w-full max-w-feed space-y-2">
-        {/* Always visible on smaller screens; desktop uses the right rail */}
-        <div className="xl:hidden">
-          <TopStories compact />
-        </div>
+    <OnboardingGate>
+      <AppShell>
+        <div className="mx-auto w-full max-w-feed space-y-2">
+          {/* Always visible on smaller screens; desktop uses the right rail */}
+          <div className="xl:hidden">
+            <TopStories compact />
+          </div>
 
-        <ComposeBox onPosted={refreshFeed} />
+          <ComposeBox onPosted={refreshFeed} />
 
         {voteError ? (
           <p className="ol-card px-4 py-2 text-center text-xs text-ol-danger" role="alert">
@@ -287,21 +314,26 @@ export default function FeedPage() {
               voting={votingPostIds.has(post.id)}
               highlighted={focusedPostId === post.id}
               defaultCommentsOpen={focusedPostId === post.id}
+              roomId={post.roomId}
+              authorName={post.author_name ?? undefined}
+              authorAvatar={post.author_avatar ?? undefined}
               onUpvote={() => void handleVote(post.id, 1)}
               onDownvote={() => void handleVote(post.id, -1)}
-              onCommentAdded={() =>
+              onCommentAdded={() => {
                 setPosts((prev) =>
                   prev.map((p) =>
                     p.id === post.id
                       ? { ...p, commentCount: p.commentCount + 1 }
                       : p,
                   ),
-                )
-              }
+                );
+                void refreshFeed();
+              }}
             />
           ))}
         </section>
       </div>
-    </AppShell>
+      </AppShell>
+    </OnboardingGate>
   );
 }
