@@ -10,6 +10,7 @@ import {
   openPost,
 } from "@/lib/post-focus";
 import {
+  DAY_MS,
   fetchTopStoriesInitial,
   fetchTopStoriesPage,
   type TopStory,
@@ -107,6 +108,11 @@ export default function TopStories({ compact = false }: TopStoriesProps) {
     return () => observer.disconnect();
   }, [hasMore, loadMore, stories.length]);
 
+  const cutoff = now - DAY_MS;
+  const visibleStories = stories.filter(
+    (s) => new Date(s.created_at).getTime() > cutoff,
+  );
+
   return (
     <section
       className={`ol-card flex flex-col overflow-hidden ${
@@ -141,14 +147,14 @@ export default function TopStories({ compact = false }: TopStoriesProps) {
           </p>
         ) : null}
 
-        {!loading && !error && stories.length === 0 ? (
+        {!loading && !error && visibleStories.length === 0 ? (
           <p className="px-3 py-6 text-center text-xs text-ol-muted">
             No stories yet. Upvote posts to rank them here.
           </p>
         ) : null}
 
         <ul className="divide-y divide-ol-border">
-          {stories.map((story) => (
+          {visibleStories.map((story) => (
             <li key={story.id}>
               <button
                 type="button"
@@ -190,7 +196,7 @@ export default function TopStories({ compact = false }: TopStoriesProps) {
           </p>
         ) : null}
 
-        {!hasMore && stories.length > 0 ? (
+        {!hasMore && visibleStories.length > 0 ? (
           <p className="pb-3 text-center text-[11px] text-ol-faint">
             You&apos;re caught up
           </p>

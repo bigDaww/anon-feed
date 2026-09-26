@@ -12,6 +12,7 @@ export type TopStory = {
 
 const INITIAL_PAGE = 40;
 const PAGE_SIZE = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function fetchTopStories(
   offset: number,
@@ -19,10 +20,12 @@ export async function fetchTopStories(
 ): Promise<TopStory[]> {
   const from = offset;
   const to = offset + limit - 1;
+  const cutoff = new Date(Date.now() - DAY_MS).toISOString();
 
   const { data, error } = await supabase
     .from("posts")
     .select("id, anon_id, content, author_name, author_avatar, created_at, upvotes")
+    .gt("created_at", cutoff)
     .order("upvotes", { ascending: false })
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -39,4 +42,4 @@ export async function fetchTopStoriesPage(offset: number): Promise<TopStory[]> {
   return fetchTopStories(offset, PAGE_SIZE);
 }
 
-export { INITIAL_PAGE, PAGE_SIZE };
+export { INITIAL_PAGE, PAGE_SIZE, DAY_MS };
