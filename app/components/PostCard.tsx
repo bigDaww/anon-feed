@@ -92,6 +92,8 @@ export default function PostCard({
   highlighted = false,
   defaultCommentsOpen = false,
   roomId = null,
+  authorName,
+  authorAvatar,
   onUpvote,
   onDownvote,
   onCommentAdded,
@@ -104,7 +106,8 @@ export default function PostCard({
     if (defaultCommentsOpen) setCommentsOpen(true);
   }, [defaultCommentsOpen]);
 
-  const handle = animalNameFromAnonId(anonId);
+  // Prefer fields frozen at create time; fall back for legacy rows.
+  const handle = authorName?.trim() || animalNameFromAnonId(anonId);
   const remaining = getExpiryRemaining(createdAt, now);
   const timeLeft = formatTimeLeft(remaining);
   const remainingRatio = Math.min(1, Math.max(0, remaining / EXPIRY_MS));
@@ -143,7 +146,13 @@ export default function PostCard({
       />
 
       <div className="flex items-start gap-2.5 px-4 pb-1 pt-3">
-        <AvatarBadge anonId={anonId} size={36} className="mt-0.5" />
+        <AvatarBadge
+          anonId={anonId}
+          size={36}
+          className="mt-0.5"
+          color={authorAvatar}
+          label={handle}
+        />
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <p className="truncate font-mono text-sm font-semibold leading-5 text-ol-ink">

@@ -171,9 +171,18 @@ export default function TopStories({ compact = false }: TopStoriesProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <AvatarBadge anonId={story.anon_id} size={16} />
+                    <AvatarBadge
+                      anonId={story.anon_id}
+                      size={16}
+                      color={story.author_avatar}
+                      label={
+                        story.author_name?.trim() ||
+                        animalNameFromAnonId(story.anon_id)
+                      }
+                    />
                     <span className="truncate font-mono text-xs font-semibold text-ol-ink">
-                      {animalNameFromAnonId(story.anon_id)}
+                      {story.author_name?.trim() ||
+                        animalNameFromAnonId(story.anon_id)}
                     </span>
                   </div>
                   <p className="mt-0.5 font-voice text-xs leading-snug text-ol-muted">

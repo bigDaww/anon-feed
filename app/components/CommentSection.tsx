@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import AvatarBadge from "@/app/components/AvatarBadge";
-import { animalNameFromAnonId } from "@/lib/avatar";
+import { animalNameFromAnonId, resolveAvatar } from "@/lib/avatar";
 import { getAnonId } from "@/lib/anon";
 import {
   friendlyWriteError,
@@ -16,6 +16,8 @@ type Comment = {
   anon_id: string;
   content: string;
   created_at: string;
+  author_name?: string | null;
+  author_avatar?: string | null;
 };
 
 type CommentSectionProps = {
@@ -36,14 +38,33 @@ function formatRelativeTime(iso: string, now = Date.now()): string {
 }
 
 async function fetchComments(postId: string): Promise<Comment[]> {
-  const { data, error } = await supabase
+  // Prefer selecting author_avatar when the column exists; fall back if older DBs lack it.
+  const withAvatar = await supabase
     .from("comments")
-    .select("id, anon_id, content, created_at")
+    .select("id, anon_id, author_name, author_avatar, content, created_at")
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
 
-  if (error) throw error;
-  return (data ?? []) as Comment[];
+  if (!withAvatar.error) {
+    return (withAvatar.data ?? []) as Comment[];
+  }
+
+  const msg = withAvatar.error.message.toLowerCase();
+  if (
+    msg.includes("author_avatar") ||
+    msg.includes("column") ||
+    withAvatar.error.code === "42703"
+  ) {
+    const legacy = await supabase
+      .from("comments")
+      .select("id, anon_id, author_name, content, created_at")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    if (legacy.error) throw legacy.error;
+    return (legacy.data ?? []) as Comment[];
+  }
+
+  throw withAvatar.error;
 }
 
 export default function CommentSection({
@@ -89,12 +110,30 @@ export default function CommentSection({
     setError(null);
 
     const anonId = getAnonId();
-    const { error: insertError } = await supabase.from("comments").insert({
+    const identity = resolveAvatar(anonId);
+    const payload: Record<string, string> = {
       post_id: postId,
       anon_id: anonId,
-      author_name: animalNameFromAnonId(anonId),
+      author_name: identity.animalName,
       content: draft.trim(),
-    });
+      author_avatar: identity.color,
+    };
+
+    let { error: insertError } = await supabase.from("comments").insert(payload);
+
+    // Older DBs without comments.author_avatar — retry without it.
+    if (
+      insertError &&
+      (insertError.message.toLowerCase().includes("author_avatar") ||
+        insertError.code === "42703" ||
+        insertError.message.toLowerCase().includes("column"))
+    ) {
+      const { author_avatar: _drop, ...withoutAvatar } = payload;
+      void _drop;
+      ({ error: insertError } = await supabase
+        .from("comments")
+        .insert(withoutAvatar));
+    }
 
     setSubmitting(false);
 
@@ -126,24 +165,35 @@ export default function CommentSection({
         ) : null}
 
         <ul className="space-y-3">
-          {comments.map((comment) => (
-            <li key={comment.id} className="flex gap-2">
-              <AvatarBadge anonId={comment.anon_id} size={28} className="mt-0.5" />
-              <div className="min-w-0 flex-1 rounded-lg bg-white px-2.5 py-1.5">
-                <div className="flex flex-wrap items-baseline gap-x-1.5">
-                  <span className="font-mono text-xs font-semibold text-ol-ink">
-                    {animalNameFromAnonId(comment.anon_id)}
-                  </span>
-                  <span className="font-mono text-[11px] text-ol-faint">
-                    · {formatRelativeTime(comment.created_at)}
-                  </span>
+          {comments.map((comment) => {
+            const handle =
+              comment.author_name?.trim() ||
+              animalNameFromAnonId(comment.anon_id);
+            return (
+              <li key={comment.id} className="flex gap-2">
+                <AvatarBadge
+                  anonId={comment.anon_id}
+                  size={28}
+                  className="mt-0.5"
+                  color={comment.author_avatar}
+                  label={handle}
+                />
+                <div className="min-w-0 flex-1 rounded-lg bg-white px-2.5 py-1.5">
+                  <div className="flex flex-wrap items-baseline gap-x-1.5">
+                    <span className="font-mono text-xs font-semibold text-ol-ink">
+                      {handle}
+                    </span>
+                    <span className="font-mono text-[11px] text-ol-faint">
+                      · {formatRelativeTime(comment.created_at)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words font-voice text-xs leading-[1.5] text-ol-ink">
+                    {comment.content}
+                  </p>
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words font-voice text-xs leading-[1.5] text-ol-ink">
-                  {comment.content}
-                </p>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
 
         <form onSubmit={handleReply} className="flex items-start gap-2">

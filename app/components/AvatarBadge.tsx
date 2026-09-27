@@ -44,15 +44,23 @@ type AvatarBadgeProps = {
   /** Pixel diameter. Feed: 36, profile: 44. */
   size?: number;
   className?: string;
+  /** Prefer stored color from DB when present (frozen identity). */
+  color?: string | null;
+  /** Prefer stored display label for the title tooltip. */
+  label?: string | null;
 };
 
 export default function AvatarBadge({
   anonId,
   size = 36,
   className = "",
+  color: colorOverride,
+  label: labelOverride,
 }: AvatarBadgeProps) {
-  const { iconName, color, animalName } = resolveAvatar(anonId);
-  const IconComp = ICON_MAP[iconName];
+  const derived = resolveAvatar(anonId);
+  const color = colorOverride?.trim() || derived.color;
+  const label = labelOverride?.trim() || derived.animalName;
+  const IconComp = ICON_MAP[derived.iconName];
   const iconSize = Math.max(14, Math.round(size * 0.5));
 
   return (
@@ -63,7 +71,7 @@ export default function AvatarBadge({
         height: size,
         backgroundColor: color,
       }}
-      title={animalName}
+      title={label}
       aria-hidden
     >
       <IconComp size={iconSize} stroke={1.75} />
