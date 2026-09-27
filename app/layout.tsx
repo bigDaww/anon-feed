@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Source_Serif_4 } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -15,6 +16,8 @@ const sourceSerif = Source_Serif_4({
   variable: "--font-voice",
   display: "swap",
 });
+
+const GA_MEASUREMENT_ID = "G-5WRSVJ3HZ1";
 
 export const metadata: Metadata = {
   title: "OutLinked",
@@ -32,6 +35,18 @@ export default function RootLayout({
         className={`${ibmPlexMono.variable} ${sourceSerif.variable} font-sans antialiased`}
       >
         {children}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
       </body>
     </html>
   );
